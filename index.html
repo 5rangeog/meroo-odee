@@ -803,13 +803,19 @@
       var high = item.rate >= DEFAULT_THRESHOLD;
       var isEditing = state.editingId === item.id;
       if (isEditing) {
+        var recorderOptions = ['엄마', '아빠', '오동', '오현', '오윤'];
+        var recorderOptionsHtml = recorderOptions.map(function(n) {
+          return '<option value="' + n + '"' + (item.recordedBy === n ? ' selected' : '') + '>' + n + '</option>';
+        }).join('');
         html += '<div class="history-item editing" data-id="' + item.id + '">' +
           '<div class="edit-form">' +
             '<div class="row" style="margin-bottom:8px">' +
               '<input type="number" class="edit-rate" value="' + item.rate + '" min="1" max="200">' +
               '<span class="unit">회/분</span>' +
             '</div>' +
-            '<label style="margin-top:0">날짜/시간</label>' +
+            '<label style="margin-top:0">기록한 사람</label>' +
+            '<select class="edit-recorder">' + recorderOptionsHtml + '</select>' +
+            '<label>날짜/시간</label>' +
             '<input type="datetime-local" class="edit-time" value="' + toLocalDatetimeInputValue(new Date(item.timestamp)) + '">' +
             '<label>메모</label>' +
             '<textarea class="edit-note" placeholder="메모">' + escapeHtml(item.note || '') + '</textarea>' +
@@ -855,13 +861,14 @@
         var id = itemEl.getAttribute('data-id');
         var rate = parseInt(itemEl.querySelector('.edit-rate').value, 10);
         var note = itemEl.querySelector('.edit-note').value.trim();
+        var recordedBy = itemEl.querySelector('.edit-recorder').value;
         var timeVal = itemEl.querySelector('.edit-time').value;
         var chosenDate = timeVal ? new Date(timeVal) : null;
         if (!rate || rate <= 0) {
           showToast('호흡수를 입력해주세요');
           return;
         }
-        var payload = { rate: rate, note: note };
+        var payload = { rate: rate, note: note, recordedBy: recordedBy };
         if (chosenDate && !isNaN(chosenDate.getTime())) {
           payload.timestamp = chosenDate.getTime();
         }
