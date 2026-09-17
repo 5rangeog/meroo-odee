@@ -43,6 +43,25 @@ export default async (req) => {
       return json(entry, 201);
     }
 
+    if (req.method === "PUT") {
+      const id = url.searchParams.get("id");
+      if (!id) return json({ error: "id required" }, 400);
+      const body = await req.json();
+      let data = (await store.get(key, { type: "json" })) || [];
+      const idx = data.findIndex((d) => d.id === id);
+      if (idx === -1) return json({ error: "not found" }, 404);
+      const existing = data[idx];
+      data[idx] = {
+        ...existing,
+        rate: body.rate !== undefined ? Number(body.rate) : existing.rate,
+        recordedBy: body.recordedBy !== undefined ? String(body.recordedBy).slice(0, 30) : existing.recordedBy,
+        note: body.note !== undefined ? String(body.note).slice(0, 300) : existing.note,
+        edited: true
+      };
+      await store.setJSON(key, data);
+      return json(data[idx]);
+    }
+
     if (req.method === "DELETE") {
       const id = url.searchParams.get("id");
       if (!id) return json({ error: "id required" }, 400);
