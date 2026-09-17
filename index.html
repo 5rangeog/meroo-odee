@@ -485,6 +485,8 @@
           <input type="number" id="rateInput" min="1" max="200" placeholder="0">
           <span class="unit">회 / 분</span>
         </div>
+        <label>날짜/시간</label>
+        <input type="datetime-local" id="timeInput">
         <label>메모 (선택)</label>
         <textarea id="noteInput" placeholder="예: 자는 중, 병원 다녀온 후 등"></textarea>
         <button class="btn btn-primary" id="saveBtn" style="margin-top:12px">
@@ -594,6 +596,7 @@
   var startBtn = $('startBtn');
   var resetBtn = $('resetBtn');
   var rateInput = $('rateInput');
+  var timeInput = $('timeInput');
   var noteInput = $('noteInput');
   var saveBtn = $('saveBtn');
   var saveCatLabel = $('saveCatLabel');
@@ -659,6 +662,17 @@
     saveLocalName(state.recorderName);
   });
 
+  // ---------- 날짜/시간 입력 ----------
+  function toLocalDatetimeInputValue(date) {
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
+      'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+  }
+  function setTimeInputToNow() {
+    timeInput.value = toLocalDatetimeInputValue(new Date());
+  }
+  setTimeInputToNow();
+
   // ---------- Timer / tap counter ----------
   function resetMeasure() {
     clearInterval(state.timer.interval);
@@ -676,6 +690,7 @@
   resetBtn.addEventListener('click', function() {
     resetMeasure();
     rateInput.value = '';
+    setTimeInputToNow();
   });
 
   startBtn.addEventListener('click', function() {
@@ -731,17 +746,20 @@
     var name = recorderName.value.trim() || '가족';
     var note = noteInput.value.trim();
     var cat = state.recordCat;
+    var chosenDate = timeInput.value ? new Date(timeInput.value) : new Date();
+    var timestamp = isNaN(chosenDate.getTime()) ? Date.now() : chosenDate.getTime();
 
     saveBtn.disabled = true;
     addReading(cat, {
       rate: rate,
       recordedBy: name,
       note: note,
-      timestamp: Date.now()
+      timestamp: timestamp
     }).then(function() {
       showToast('저장했어요 🐾');
       rateInput.value = '';
       noteInput.value = '';
+      setTimeInputToNow();
       resetMeasure();
     }).catch(function(err) {
       showToast('저장 실패: ' + (err && err.message ? err.message : '다시 시도해주세요'));
@@ -791,6 +809,9 @@
               '<input type="number" class="edit-rate" value="' + item.rate + '" min="1" max="200">' +
               '<span class="unit">회/분</span>' +
             '</div>' +
+            '<label style="margin-top:0">날짜/시간</label>' +
+            '<input type="datetime-local" class="edit-time" value="' + toLocalDatetimeInputValue(new Date(item.timestamp)) + '">' +
+            '<label>메모</label>' +
             '<textarea class="edit-note" placeholder="메모">' + escapeHtml(item.note || '') + '</textarea>' +
             '<div class="row" style="margin-top:8px">' +
               '<button class="btn btn-secondary edit-cancel">취소</button>' +
@@ -834,12 +855,18 @@
         var id = itemEl.getAttribute('data-id');
         var rate = parseInt(itemEl.querySelector('.edit-rate').value, 10);
         var note = itemEl.querySelector('.edit-note').value.trim();
+        var timeVal = itemEl.querySelector('.edit-time').value;
+        var chosenDate = timeVal ? new Date(timeVal) : null;
         if (!rate || rate <= 0) {
           showToast('호흡수를 입력해주세요');
           return;
         }
+        var payload = { rate: rate, note: note };
+        if (chosenDate && !isNaN(chosenDate.getTime())) {
+          payload.timestamp = chosenDate.getTime();
+        }
         btn.disabled = true;
-        updateReading(cat, id, { rate: rate, note: note }).then(function() {
+        updateReading(cat, id, payload).then(function() {
           state.editingId = null;
           showToast('수정했어요');
         }).catch(function() {
@@ -978,6 +1005,7 @@
 
   function refreshCat(cat) {
     return apiGet(cat).then(function(list) {
+      list = list.slice().sort(function(a, b) { return b.timestamp - a.timestamp; });
       state.readings[cat] = list;
       state.dbReady = true;
       if (state.activeView === cat) {

@@ -56,6 +56,7 @@ export default async (req) => {
         rate: body.rate !== undefined ? Number(body.rate) : existing.rate,
         recordedBy: body.recordedBy !== undefined ? String(body.recordedBy).slice(0, 30) : existing.recordedBy,
         note: body.note !== undefined ? String(body.note).slice(0, 300) : existing.note,
+        timestamp: body.timestamp !== undefined ? Number(body.timestamp) : existing.timestamp,
         edited: true
       };
       await store.setJSON(key, data);
