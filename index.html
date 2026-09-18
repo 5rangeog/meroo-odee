@@ -422,6 +422,13 @@
     white-space: nowrap;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+
+  @keyframes flashAlert {
+    0%, 100% { background-color: var(--bg, #fff); }
+    25%, 75% { background-color: #ffe9b3; }
+    50% { background-color: #ffd166; }
+  }
+  body.flash-alert { animation: flashAlert 0.6s ease-in-out; }
 </style>
 </head>
 <body>
@@ -644,7 +651,12 @@
     pickMeoru.classList.toggle('active', state.recordCat === 'meoru');
     pickOdi.classList.toggle('active', state.recordCat === 'odi');
     var info = CATS[state.recordCat];
-    saveCatLabel.textContent = info.emoji + ' ' + info.label + ' 기록 저장';
+    var faceBtn = (state.recordCat === 'meoru') ? pickMeoru : pickOdi;
+    var faceImgEl = faceBtn.querySelector('img');
+    var faceHtml = faceImgEl
+      ? '<img src="' + faceImgEl.src + '" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px;">'
+      : (info.emoji + ' ');
+    saveCatLabel.innerHTML = faceHtml + info.label + ' 기록 저장';
   }
   pickMeoru.addEventListener('click', function() {
     state.recordCat = 'meoru';
@@ -724,6 +736,47 @@
     tapCountEl.textContent = String(state.timer.count);
   });
 
+  function notifyTimerEnd() {
+    // 안드로이드: 진동
+    var vibrated = false;
+    try {
+      if (navigator.vibrate) {
+        vibrated = navigator.vibrate([200, 100, 200]);
+      }
+    } catch (e) { /* ignore */ }
+
+    // 아이폰 등 진동 미지원 기기: 소리 + 화면 깜박임으로 대체
+    if (!vibrated) {
+      try {
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          var ctx = new AudioCtx();
+          var beep = function(delay) {
+            setTimeout(function() {
+              var osc = ctx.createOscillator();
+              var gain = ctx.createGain();
+              osc.type = 'sine';
+              osc.frequency.value = 880;
+              gain.gain.value = 0.2;
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.18);
+            }, delay);
+          };
+          beep(0);
+          beep(300);
+        }
+      } catch (e) { /* ignore */ }
+
+      // 화면 깜박임
+      document.body.classList.add('flash-alert');
+      setTimeout(function() {
+        document.body.classList.remove('flash-alert');
+      }, 600);
+    }
+  }
+
   function finishMeasure() {
     state.timer.running = false;
     tapBtn.disabled = true;
@@ -733,6 +786,7 @@
     durationSelect.disabled = false;
     var rate = Math.round(state.timer.count * (60 / state.timer.duration));
     rateInput.value = rate;
+    notifyTimerEnd();
     showToast('측정 완료: 분당 ' + rate + '회');
   }
 
@@ -829,7 +883,7 @@
         html += '<div class="history-item" data-id="' + item.id + '">' +
           '<div class="rate-badge ' + (high ? 'high' : '') + '">' + item.rate + '<span>회/분</span></div>' +
           '<div class="history-info">' +
-            '<div class="history-top"><span>' + fmtDate(item.timestamp) + ' · ' + escapeHtml(item.recordedBy || '가족') + (item.edited ? ' · (수정됨)' : '') + '</span></div>' +
+            '<div class="history-top"><span>' + fmtDate(item.timestamp) + ' · ' + escapeHtml(item.recordedBy || '가족') + '</span></div>' +
             (item.note ? '<div class="history-note">' + escapeHtml(item.note) + '</div>' : '') +
           '</div>' +
           '<div class="item-actions">' +
